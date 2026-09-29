@@ -6,6 +6,10 @@ dist/
 .next/
 out/
 *.tsbuildinfo
+next-env.d.ts
+
+# prisma client (di-generate ulang oleh `prisma generate`)
+**/src/generated/
 
 # turbo
 .turbo/
@@ -14,6 +18,11 @@ out/
 .env
 .env.*
 !.env.example
+
+# data klien untuk import — jangan di-commit
+data-import/
+apps/api/uploads/
+mass_update_*.xlsx
 
 # logs
 *.log
