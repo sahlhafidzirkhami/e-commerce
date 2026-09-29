@@ -17,6 +17,8 @@ const envSchema = z.object({
   RAJAONGKIR_BASE_URL: z.string().optional(),
   EMAIL_API_KEY: z.string().optional(),
   STORAGE_BUCKET: z.string().optional(),
+  STORAGE_DRIVER: z.enum(['local']).default('local'),
+  UPLOADS_DIR: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
