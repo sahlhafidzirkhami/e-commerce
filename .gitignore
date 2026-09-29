@@ -19,6 +19,11 @@ next-env.d.ts
 .env.*
 !.env.example
 
+# data klien untuk import — jangan di-commit
+data-import/
+apps/api/uploads/
+mass_update_*.xlsx
+
 # logs
 *.log
 npm-debug.log*

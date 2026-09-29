@@ -126,15 +126,37 @@ model Category {
   products Product[]
 }
 
+/// 1 produk = 1 warna; warna lain dibuat sebagai produk terpisah.
 model Product {
   id          String   @id @default(cuid())
   categoryId  String?
+  /// SKU induk, format KODEMODEL-NOMORWARNA (mis. MSL001-3).
+  sku         String   @unique
   name        String
   slug        String   @unique
   description String   @default("")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  /// Judul panjang (mis. dari Shopee) untuk meta SEO.
+  seoTitle    String?
+  brand       String?
+
+  // Atribut informasi (bukan filter)
+  gender       String?
+  sportType    String?
+  motif        String?
+  sleeveLength String?
+
+  sizeChartUrl String?
+
+  // Ukuran paket (cm)
+  lengthCm Int?
+  widthCm  Int?
+  heightCm Int?
+
+  /// Id produk di Shopee, agar import bisa dijalankan ulang tanpa duplikasi.
+  shopeeItemId String?  @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   images   ProductImage[]
@@ -158,9 +180,9 @@ model ProductImage {
 model ProductVariant {
   id         String   @id @default(cuid())
   productId  String
+  /// SKU induk + ukuran, mis. MSL001-3-S.
   sku        String   @unique
   size       String
-  color      String
   price      Int
   stock      Int      @default(0)
   weightGram Int
@@ -172,7 +194,7 @@ model ProductVariant {
   cartItems  CartItem[]
   orderItems OrderItem[]
 
-  @@unique([productId, size, color])
+  @@unique([productId, size])
 }
 
 // ─── Keranjang (tamu: token di cookie; member: terikat userId) ───────────────
