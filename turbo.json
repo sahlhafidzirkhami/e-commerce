@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": [".env"],
+  "agentGuidance": false,
   "tasks": {
     "db:generate": {
       "inputs": ["prisma/schema.prisma", "prisma.config.ts"],
