@@ -7,6 +7,10 @@ export const CACHE_TTL = {
   TRACKING: 2 * 60 * 60,
 } as const;
 
+/** Lama sesi login sebelum harus masuk ulang. */
+export const SESSION_TTL_DAYS = 7;
+export const SESSION_COOKIE_NAME = 'session';
+
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
