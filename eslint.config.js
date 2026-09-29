@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/.next/**',
       '**/.turbo/**',
       '**/coverage/**',
+      '**/src/generated/**',
       '**/next-env.d.ts',
     ],
   },
