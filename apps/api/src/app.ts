@@ -9,7 +9,9 @@ import { uploadsDir } from './lib/storage.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { loadSession } from './modules/auth/auth.middleware.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
+import { createCartRouter } from './modules/cart/cart.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { createCatalogRouter } from './modules/product/product.routes.js';
 
 export function createApp(): Express {
   const app = express();
@@ -37,6 +39,8 @@ export function createApp(): Express {
 
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter());
+  app.use('/api', createCatalogRouter());
+  app.use('/api/cart', createCartRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

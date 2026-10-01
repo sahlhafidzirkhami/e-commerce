@@ -5,18 +5,11 @@ import {
   loginSchema,
   registerSchema,
 } from '@sportswear/shared';
-import type { CookieOptions, RequestHandler, Response } from 'express';
-import { env } from '../../config/env.js';
+import type { RequestHandler, Response } from 'express';
+import { baseCookieOptions as cookieOptions } from '../../lib/cookie.js';
 import { HttpError } from '../../lib/http-error.js';
 import { authenticate, registerUser, toAuthUser, type SessionUser } from './auth.service.js';
 import { signSessionToken } from './auth.token.js';
-
-const cookieOptions: CookieOptions = {
-  httpOnly: true,
-  secure: env.NODE_ENV === 'production',
-  sameSite: 'lax',
-  path: '/',
-};
 
 async function startSession(res: Response, user: SessionUser) {
   const token = await signSessionToken({ userId: user.id, tokenVersion: user.tokenVersion });

@@ -44,6 +44,15 @@ export const STOCK_RELEASING_STATUSES: readonly OrderStatus[] = [
   OrderStatus.CANCELLED,
 ];
 
+/** Status order yang dihitung sebagai penjualan (untuk urutan "terlaris" dan laporan). */
+export const SOLD_STATUSES: readonly OrderStatus[] = [
+  OrderStatus.PAID,
+  OrderStatus.PROCESSING,
+  OrderStatus.SHIPPED,
+  OrderStatus.DELIVERED,
+  OrderStatus.COMPLETED,
+];
+
 export function isFinalStatus(status: OrderStatus): boolean {
   return ORDER_STATUS_TRANSITIONS[status].length === 0;
 }

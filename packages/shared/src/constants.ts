@@ -11,6 +11,10 @@ export const CACHE_TTL = {
 export const SESSION_TTL_DAYS = 7;
 export const SESSION_COOKIE_NAME = 'session';
 
+/** Cookie penanda keranjang tamu. */
+export const CART_COOKIE_NAME = 'cart_token';
+export const CART_COOKIE_TTL_DAYS = 30;
+
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
