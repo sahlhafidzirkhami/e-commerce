@@ -103,9 +103,11 @@ model City {
 }
 
 model District {
-  id     Int    @id
-  cityId Int
-  name   String
+  id         Int     @id
+  cityId     Int
+  name       String
+  /// Kode pos dari RajaOngkir, untuk mengisi otomatis form alamat. Null bila tidak tersedia.
+  postalCode String?
 
   city      City      @relation(fields: [cityId], references: [id])
   addresses Address[]
@@ -231,6 +233,8 @@ model CartItem {
 model Order {
   id          String      @id @default(cuid())
   orderNumber String      @unique
+  /// Token acak untuk membuka status pesanan tanpa login (pembeli tamu).
+  accessToken String      @unique
   userId      String?
   status      OrderStatus @default(pending)
 

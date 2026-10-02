@@ -4,6 +4,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.url(),
+  /** Jalankan job terjadwal (expire-order) di proses API. */
+  RUN_JOBS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   REDIS_URL: z.url(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET minimal 32 karakter'),
   WEB_URL: z.url(),
@@ -13,6 +18,8 @@ const envSchema = z.object({
   DOKU_CLIENT_ID: z.string().optional(),
   DOKU_SECRET_KEY: z.string().optional(),
   DOKU_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  /** URL publik webhook (mis. tunnel saat development); path harus sama dengan di back office DOKU. */
+  DOKU_NOTIFICATION_URL: z.url().optional(),
   RAJAONGKIR_API_KEY: z.string().optional(),
   RAJAONGKIR_BASE_URL: z.string().optional(),
   EMAIL_API_KEY: z.string().optional(),

@@ -10,6 +10,11 @@ export const emailSchema = z
   .toLowerCase()
   .pipe(z.email('Format email tidak valid'));
 
+export const phoneSchema = z
+  .string()
+  .trim()
+  .regex(PHONE_PATTERN, 'Nomor HP tidak valid (contoh: 081234567890)');
+
 export const passwordSchema = z
   .string()
   .min(8, 'Password minimal 8 karakter')
@@ -19,11 +24,7 @@ export const registerSchema = z.object({
   name: z.string().trim().min(2, 'Nama minimal 2 karakter').max(100, 'Nama terlalu panjang'),
   email: emailSchema,
   password: passwordSchema,
-  phone: z
-    .string()
-    .trim()
-    .regex(PHONE_PATTERN, 'Nomor HP tidak valid (contoh: 081234567890)')
-    .optional(),
+  phone: phoneSchema.optional(),
 });
 
 export const loginSchema = z.object({

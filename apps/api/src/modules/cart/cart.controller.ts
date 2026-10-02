@@ -21,7 +21,7 @@ import {
 
 const variantParamsSchema = z.object({ variantId: idSchema });
 
-function cartOwner(req: Request): CartOwner {
+export function cartOwner(req: Request): CartOwner {
   const token: unknown = req.cookies?.[CART_COOKIE_NAME];
   return {
     userId: req.user?.id,

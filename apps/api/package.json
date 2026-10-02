@@ -15,7 +15,9 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "import:shopee": "tsx --env-file=../../.env src/scripts/import-shopee.ts",
-    "user:create-owner": "tsx --env-file=../../.env src/scripts/create-owner.ts"
+    "user:create-owner": "tsx --env-file=../../.env src/scripts/create-owner.ts",
+    "region:sync": "tsx --env-file=../../.env src/scripts/sync-regions.ts",
+    "shipping:configure": "tsx --env-file=../../.env src/scripts/configure-shipping.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

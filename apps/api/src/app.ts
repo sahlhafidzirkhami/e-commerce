@@ -11,7 +11,10 @@ import { loadSession } from './modules/auth/auth.middleware.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createCartRouter } from './modules/cart/cart.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { createCheckoutRouter } from './modules/order/order.routes.js';
+import { createDokuWebhookRouter, createPaymentRouter } from './modules/payment/payment.routes.js';
 import { createCatalogRouter } from './modules/product/product.routes.js';
+import { createShippingRouter } from './modules/shipping/shipping.routes.js';
 
 export function createApp(): Express {
   const app = express();
@@ -33,6 +36,8 @@ export function createApp(): Express {
   );
 
   app.use(pinoHttp({ logger }));
+  // Sebelum express.json: verifikasi signature DOKU butuh body mentah.
+  app.use(createDokuWebhookRouter());
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(loadSession);
@@ -41,6 +46,9 @@ export function createApp(): Express {
   app.use('/api/auth', createAuthRouter());
   app.use('/api', createCatalogRouter());
   app.use('/api/cart', createCartRouter());
+  app.use('/api', createCheckoutRouter());
+  app.use('/api', createShippingRouter());
+  app.use('/api', createPaymentRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);
