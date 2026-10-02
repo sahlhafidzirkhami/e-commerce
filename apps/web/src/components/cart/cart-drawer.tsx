@@ -19,7 +19,7 @@ export function CartDrawer() {
       footer={
         cart && !empty ? (
           <div className="flex flex-col gap-3">
-            <CartSummary cart={cart} />
+            <CartSummary cart={cart} onNavigate={closeDrawer} />
             <Link
               href="/keranjang"
               onClick={closeDrawer}
