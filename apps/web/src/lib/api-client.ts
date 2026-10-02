@@ -12,14 +12,24 @@ export class ApiClientError extends Error {
   }
 }
 
-/** Panggilan API dari browser lewat rewrite /api (cookie first-party ikut terkirim). */
+/**
+ * Panggilan API dari browser lewat rewrite /api (cookie first-party ikut terkirim).
+ * Body string dianggap JSON; body File/Blob dikirim apa adanya dengan tipe file-nya.
+ */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const requestBody = init?.body;
+  const contentType =
+    requestBody instanceof Blob
+      ? requestBody.type
+      : typeof requestBody === 'string'
+        ? 'application/json'
+        : undefined;
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       ...init,
       cache: 'no-store',
-      headers: init?.body ? { 'content-type': 'application/json' } : undefined,
+      headers: contentType ? { 'content-type': contentType } : undefined,
     });
   } catch {
     throw new ApiClientError(0, 'NETWORK', 'Koneksi terputus. Periksa internet lalu coba lagi.');

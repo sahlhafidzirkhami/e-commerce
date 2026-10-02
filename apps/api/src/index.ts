@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
+import { closeEmailQueue } from './jobs/email-queue.js';
 import { startJobs, type RunningJobs } from './jobs/index.js';
 import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
@@ -26,6 +27,7 @@ async function shutdown(signal: string) {
   logger.info(`${signal} diterima, mematikan server...`);
   server.close();
   await jobs?.close();
+  await closeEmailQueue();
   await Promise.allSettled([prisma.$disconnect(), redis.quit()]);
   process.exit(0);
 }

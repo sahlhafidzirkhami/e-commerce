@@ -11,6 +11,7 @@ import {
   verifyNotificationSignature,
   type NotificationHeaders,
 } from '../../lib/doku.js';
+import { enqueueOrderEmail } from '../../jobs/email-queue.js';
 import { HttpError } from '../../lib/http-error.js';
 import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
@@ -164,7 +165,8 @@ export async function applyPaymentResult(
   result: PaymentResult,
   now = new Date(),
 ): Promise<ApplyOutcome> {
-  return prisma.$transaction(async (tx) => {
+  let paidOrderId: string | null = null;
+  const outcome = await prisma.$transaction(async (tx): Promise<ApplyOutcome> => {
     const payment = await tx.payment.findUnique({
       where: { invoiceNumber },
       include: { order: { select: { id: true, status: true, total: true, orderNumber: true } } },
@@ -204,6 +206,7 @@ export async function applyPaymentResult(
           now,
           note: `Dibayar via DOKU${result.method ? ` (${result.method})` : ''}, sumber: ${result.source}`,
         });
+        paidOrderId = payment.order.id;
         return 'paid';
       }
       if (payment.order.status === 'expired' || payment.order.status === 'cancelled') {
@@ -239,6 +242,9 @@ export async function applyPaymentResult(
 
     return 'recorded';
   });
+  // Setelah commit: email hanya untuk perubahan ke `paid` yang benar-benar tersimpan.
+  if (paidOrderId) await enqueueOrderEmail('order-paid', paidOrderId);
+  return outcome;
 }
 
 const notificationSchema = z.looseObject({

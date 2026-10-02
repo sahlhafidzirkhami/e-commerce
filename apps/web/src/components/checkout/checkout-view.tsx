@@ -3,14 +3,17 @@
 import {
   checkoutContactSchema,
   shippingAddressSchema,
+  ADDRESS_BOOK_LIMIT,
+  type AccountAddress,
   type AuthUser,
   type CheckoutQuote,
 } from '@sportswear/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useCart } from '@/components/cart/cart-provider';
 import { buttonClass, inputClass } from '@/components/ui/styles';
+import { accountApi } from '@/lib/account-client';
 import { ApiClientError, apiFetch, errorMessage } from '@/lib/api-client';
 import {
   checkoutApi,
@@ -68,20 +71,34 @@ export function CheckoutView() {
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [quote, setQuote] = useState<Load<CheckoutQuote>>({ status: 'idle' });
+  const quoteSeq = useRef(0);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Prefill kontak dari akun yang sedang login.
+  // Member: buku alamat (F-18). null = isi alamat baru di form.
+  const [isMember, setIsMember] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<AccountAddress[]>([]);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const selectedSaved = savedAddresses.find((a) => a.id === savedId) ?? null;
+  const canSaveAddress = isMember && !selectedSaved && savedAddresses.length < ADDRESS_BOOK_LIMIT;
+
+  // Prefill kontak dan alamat utama dari akun yang sedang login.
   useEffect(() => {
     apiFetch<{ user: AuthUser }>('/auth/me')
-      .then(({ user }) =>
+      .then(async ({ user }) => {
+        setIsMember(true);
         setContact((c) => ({
           name: c.name || user.name,
           email: c.email || user.email,
           phone: c.phone || user.phone || '',
-        })),
-      )
+        }));
+        const addresses = await accountApi.addresses();
+        setSavedAddresses(addresses);
+        // Diurutkan server: alamat utama paling atas.
+        setSavedId((current) => current ?? addresses[0]?.id ?? null);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -126,15 +143,26 @@ export function CheckoutView() {
   }
 
   const address = useMemo(
-    () => ({
-      recipientName: sameAsContact ? contact.name : recipient.name,
-      phone: sameAsContact ? contact.phone : recipient.phone,
-      street,
-      districtId: districtId ?? 0,
-      postalCode,
-    }),
-    [sameAsContact, contact, recipient, street, districtId, postalCode],
+    () =>
+      selectedSaved
+        ? {
+            recipientName: selectedSaved.recipientName,
+            phone: selectedSaved.phone,
+            street: selectedSaved.street,
+            districtId: selectedSaved.districtId,
+            postalCode: selectedSaved.postalCode,
+          }
+        : {
+            recipientName: sameAsContact ? contact.name : recipient.name,
+            phone: sameAsContact ? contact.phone : recipient.phone,
+            street,
+            districtId: districtId ?? 0,
+            postalCode,
+          },
+    [selectedSaved, sameAsContact, contact, recipient, street, districtId, postalCode],
   );
+  /** Kecamatan tujuan dari alamat tersimpan atau dari form. */
+  const destinationId = address.districtId || null;
 
   async function loadRates(id: number) {
     setRates({ status: 'loading' });
@@ -152,26 +180,34 @@ export function CheckoutView() {
   }
 
   async function loadQuote(code: string | null) {
-    if (!districtId || !choice) return;
+    if (!destinationId || !choice) return;
+    // Hanya respons permintaan terakhir yang dipakai: respons lama yang datang belakangan
+    // (mis. hitung ulang tanpa voucher) tidak boleh menimpa voucher yang baru dipasang.
+    const seq = ++quoteSeq.current;
     setQuote({ status: 'loading' });
+    if (code) setVoucherError(null);
+    let data: CheckoutQuote;
     try {
-      const data = await checkoutApi.quote({
-        districtId,
+      data = await checkoutApi.quote({
+        districtId: destinationId,
         shipping: { courier: choice.courier, service: choice.service },
         ...(code && { voucherCode: code }),
       });
-      setQuote({ status: 'ready', data });
-      setVoucherCode(code);
-      setVoucherError(null);
     } catch (err) {
+      if (seq !== quoteSeq.current) return;
       if (code && err instanceof ApiClientError && err.code === 'VOUCHER_INVALID') {
+        // Pesan error tetap tampil; total dihitung ulang tanpa voucher.
         setVoucherError(err.message);
-        // Kembali ke total tanpa voucher.
+        setVoucherCode(null);
         void loadQuote(null);
         return;
       }
       setQuote({ status: 'error', message: errorMessage(err) });
+      return;
     }
+    if (seq !== quoteSeq.current) return;
+    setQuote({ status: 'ready', data });
+    setVoucherCode(code);
   }
 
   function submitAddress(event: FormEvent) {
@@ -182,14 +218,14 @@ export function CheckoutView() {
       ...(contactResult.success ? {} : firstErrors(contactResult.error.issues, 'contact')),
       ...(addressResult.success ? {} : firstErrors(addressResult.error.issues, 'address')),
     };
-    if (!districtId) next['address.districtId'] = 'Pilih provinsi, kota, dan kecamatan';
+    if (!destinationId) next['address.districtId'] = 'Pilih provinsi, kota, dan kecamatan';
     setErrors(next);
     if (Object.keys(next).length > 0) {
       document.getElementById(Object.keys(next)[0]!)?.focus();
       return;
     }
     setStep(2);
-    void loadRates(districtId!);
+    void loadRates(destinationId!);
   }
 
   function submitShipping(event: FormEvent) {
@@ -200,7 +236,7 @@ export function CheckoutView() {
   }
 
   async function pay() {
-    if (!districtId || !choice) return;
+    if (!destinationId || !choice) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -210,6 +246,7 @@ export function CheckoutView() {
         shipping: { courier: choice.courier, service: choice.service },
         ...(voucherCode && { voucherCode }),
         ...(notes.trim() && { notes: notes.trim() }),
+        ...(canSaveAddress && saveAddress && { saveAddress: true }),
       });
       void reloadCart();
       router.push(
@@ -345,161 +382,233 @@ export function CheckoutView() {
                   />
                 </Field>
 
-                <label className="inline-flex min-h-11 items-center gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={sameAsContact}
-                    onChange={(e) => setSameAsContact(e.target.checked)}
-                    className="size-5 accent-action"
-                  />
-                  Penerima sama dengan kontak di atas
-                </label>
-                {!sameAsContact && (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field
-                      id="address.recipientName"
-                      label="Nama penerima"
-                      error={errors['address.recipientName']}
+                {savedAddresses.length > 0 && (
+                  <fieldset className="flex flex-col gap-2">
+                    <legend className="mb-1 text-[13px] font-semibold">Alamat pengiriman</legend>
+                    {savedAddresses.map((a) => (
+                      <label
+                        key={a.id}
+                        className={`flex cursor-pointer gap-3 rounded-xl border-[1.5px] p-3 text-sm ${
+                          savedId === a.id ? 'border-action bg-action-tint' : 'border-line-input'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="saved-address"
+                          checked={savedId === a.id}
+                          onChange={() => setSavedId(a.id)}
+                          className="mt-0.5 size-5 shrink-0 accent-action"
+                        />
+                        <span>
+                          <span className="font-semibold">
+                            {a.label ?? a.recipientName}
+                            {a.isDefault && ' (utama)'}
+                          </span>
+                          <br />
+                          {a.recipientName} · {a.phone}
+                          <br />
+                          <span className="text-ink-2">
+                            {a.street}, {a.district}, {a.city} {a.postalCode}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                    <label
+                      className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border-[1.5px] px-3 text-sm font-semibold ${
+                        savedId === null ? 'border-action bg-action-tint' : 'border-line-input'
+                      }`}
                     >
                       <input
-                        id="address.recipientName"
-                        value={recipient.name}
-                        onChange={(e) => setRecipient({ ...recipient, name: e.target.value })}
-                        className={inputClass}
-                        {...errorProps('address.recipientName', errors['address.recipientName'])}
+                        type="radio"
+                        name="saved-address"
+                        checked={savedId === null}
+                        onChange={() => setSavedId(null)}
+                        className="size-5 shrink-0 accent-action"
                       />
-                    </Field>
-                    <Field
-                      id="address.phone"
-                      label="Nomor HP penerima"
-                      error={errors['address.phone']}
-                    >
-                      <input
-                        id="address.phone"
-                        type="tel"
-                        inputMode="tel"
-                        placeholder="Contoh: 081234567890"
-                        value={recipient.phone}
-                        onChange={(e) => setRecipient({ ...recipient, phone: e.target.value })}
-                        className={inputClass}
-                        {...errorProps('address.phone', errors['address.phone'])}
-                      />
-                    </Field>
-                  </div>
+                      Kirim ke alamat lain
+                    </label>
+                  </fieldset>
                 )}
 
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Field
-                    id="address.province"
-                    label="Provinsi"
-                    error={provinces.status === 'error' ? provinces.message : undefined}
-                  >
-                    <select
-                      id="address.province"
-                      value={provinceId ?? ''}
-                      disabled={provinces.status !== 'ready'}
-                      onChange={(e) =>
-                        void pickProvince(e.target.value ? Number(e.target.value) : null)
-                      }
-                      className={selectClass}
-                    >
-                      <option value="">
-                        {provinces.status === 'loading' ? 'Memuat...' : 'Pilih provinsi'}
-                      </option>
-                      {provinces.status === 'ready' &&
-                        provinces.data.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
-                  <Field
-                    id="address.city"
-                    label="Kota/kabupaten"
-                    error={cities.status === 'error' ? cities.message : undefined}
-                  >
-                    <select
-                      id="address.city"
-                      value={cityId ?? ''}
-                      disabled={cities.status !== 'ready'}
-                      onChange={(e) =>
-                        void pickCity(e.target.value ? Number(e.target.value) : null)
-                      }
-                      className={selectClass}
-                    >
-                      <option value="">
-                        {cities.status === 'loading' ? 'Memuat...' : 'Pilih kota'}
-                      </option>
-                      {cities.status === 'ready' &&
-                        cities.data.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
-                  <Field
-                    id="address.districtId"
-                    label="Kecamatan"
-                    error={
-                      districts.status === 'error'
-                        ? districts.message
-                        : errors['address.districtId']
-                    }
-                  >
-                    <select
-                      id="address.districtId"
-                      value={districtId ?? ''}
-                      disabled={districts.status !== 'ready'}
-                      onChange={(e) => pickDistrict(e.target.value ? Number(e.target.value) : null)}
-                      className={selectClass}
-                      {...errorProps('address.districtId', errors['address.districtId'])}
-                    >
-                      <option value="">
-                        {districts.status === 'loading' ? 'Memuat...' : 'Pilih kecamatan'}
-                      </option>
-                      {districts.status === 'ready' &&
-                        districts.data.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
-                </div>
+                {!selectedSaved && (
+                  <>
+                    <label className="inline-flex min-h-11 items-center gap-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sameAsContact}
+                        onChange={(e) => setSameAsContact(e.target.checked)}
+                        className="size-5 accent-action"
+                      />
+                      Penerima sama dengan kontak di atas
+                    </label>
+                    {!sameAsContact && (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field
+                          id="address.recipientName"
+                          label="Nama penerima"
+                          error={errors['address.recipientName']}
+                        >
+                          <input
+                            id="address.recipientName"
+                            value={recipient.name}
+                            onChange={(e) => setRecipient({ ...recipient, name: e.target.value })}
+                            className={inputClass}
+                            {...errorProps(
+                              'address.recipientName',
+                              errors['address.recipientName'],
+                            )}
+                          />
+                        </Field>
+                        <Field
+                          id="address.phone"
+                          label="Nomor HP penerima"
+                          error={errors['address.phone']}
+                        >
+                          <input
+                            id="address.phone"
+                            type="tel"
+                            inputMode="tel"
+                            placeholder="Contoh: 081234567890"
+                            value={recipient.phone}
+                            onChange={(e) => setRecipient({ ...recipient, phone: e.target.value })}
+                            className={inputClass}
+                            {...errorProps('address.phone', errors['address.phone'])}
+                          />
+                        </Field>
+                      </div>
+                    )}
 
-                <Field id="address.street" label="Alamat lengkap" error={errors['address.street']}>
-                  <textarea
-                    id="address.street"
-                    rows={3}
-                    autoComplete="street-address"
-                    placeholder="Nama jalan, nomor rumah, RT/RW, patokan"
-                    value={street}
-                    onChange={(e) => setStreet(e.target.value)}
-                    className={`${inputClass} h-auto py-3`}
-                    {...errorProps('address.street', errors['address.street'])}
-                  />
-                </Field>
-                <div className="sm:max-w-48">
-                  <Field
-                    id="address.postalCode"
-                    label="Kode pos"
-                    error={errors['address.postalCode']}
-                  >
-                    <input
-                      id="address.postalCode"
-                      inputMode="numeric"
-                      autoComplete="postal-code"
-                      maxLength={5}
-                      placeholder="Contoh: 40266"
-                      value={postalCode}
-                      onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))}
-                      className={inputClass}
-                      {...errorProps('address.postalCode', errors['address.postalCode'])}
-                    />
-                  </Field>
-                </div>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field
+                        id="address.province"
+                        label="Provinsi"
+                        error={provinces.status === 'error' ? provinces.message : undefined}
+                      >
+                        <select
+                          id="address.province"
+                          value={provinceId ?? ''}
+                          disabled={provinces.status !== 'ready'}
+                          onChange={(e) =>
+                            void pickProvince(e.target.value ? Number(e.target.value) : null)
+                          }
+                          className={selectClass}
+                        >
+                          <option value="">
+                            {provinces.status === 'loading' ? 'Memuat...' : 'Pilih provinsi'}
+                          </option>
+                          {provinces.status === 'ready' &&
+                            provinces.data.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                        </select>
+                      </Field>
+                      <Field
+                        id="address.city"
+                        label="Kota/kabupaten"
+                        error={cities.status === 'error' ? cities.message : undefined}
+                      >
+                        <select
+                          id="address.city"
+                          value={cityId ?? ''}
+                          disabled={cities.status !== 'ready'}
+                          onChange={(e) =>
+                            void pickCity(e.target.value ? Number(e.target.value) : null)
+                          }
+                          className={selectClass}
+                        >
+                          <option value="">
+                            {cities.status === 'loading' ? 'Memuat...' : 'Pilih kota'}
+                          </option>
+                          {cities.status === 'ready' &&
+                            cities.data.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                        </select>
+                      </Field>
+                      <Field
+                        id="address.districtId"
+                        label="Kecamatan"
+                        error={
+                          districts.status === 'error'
+                            ? districts.message
+                            : errors['address.districtId']
+                        }
+                      >
+                        <select
+                          id="address.districtId"
+                          value={districtId ?? ''}
+                          disabled={districts.status !== 'ready'}
+                          onChange={(e) =>
+                            pickDistrict(e.target.value ? Number(e.target.value) : null)
+                          }
+                          className={selectClass}
+                          {...errorProps('address.districtId', errors['address.districtId'])}
+                        >
+                          <option value="">
+                            {districts.status === 'loading' ? 'Memuat...' : 'Pilih kecamatan'}
+                          </option>
+                          {districts.status === 'ready' &&
+                            districts.data.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name}
+                              </option>
+                            ))}
+                        </select>
+                      </Field>
+                    </div>
+
+                    <Field
+                      id="address.street"
+                      label="Alamat lengkap"
+                      error={errors['address.street']}
+                    >
+                      <textarea
+                        id="address.street"
+                        rows={3}
+                        autoComplete="street-address"
+                        placeholder="Nama jalan, nomor rumah, RT/RW, patokan"
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                        className={`${inputClass} h-auto py-3`}
+                        {...errorProps('address.street', errors['address.street'])}
+                      />
+                    </Field>
+                    <div className="sm:max-w-48">
+                      <Field
+                        id="address.postalCode"
+                        label="Kode pos"
+                        error={errors['address.postalCode']}
+                      >
+                        <input
+                          id="address.postalCode"
+                          inputMode="numeric"
+                          autoComplete="postal-code"
+                          maxLength={5}
+                          placeholder="Contoh: 40266"
+                          value={postalCode}
+                          onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))}
+                          className={inputClass}
+                          {...errorProps('address.postalCode', errors['address.postalCode'])}
+                        />
+                      </Field>
+                    </div>
+                    {canSaveAddress && (
+                      <label className="inline-flex min-h-11 items-center gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={saveAddress}
+                          onChange={(e) => setSaveAddress(e.target.checked)}
+                          className="size-5 accent-action"
+                        />
+                        Simpan ke buku alamat
+                      </label>
+                    )}
+                  </>
+                )}
                 <button
                   type="submit"
                   className={buttonClass('primary', 'lg', 'hidden lg:inline-flex lg:self-start')}
@@ -511,7 +620,7 @@ export function CheckoutView() {
               <p className="mt-2 text-sm text-ink-2">
                 {address.recipientName} · {address.phone}
                 <br />
-                {street}, {address.postalCode}
+                {address.street}, {address.postalCode}
               </p>
             )}
           </section>
@@ -547,7 +656,7 @@ export function CheckoutView() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => districtId && void loadRates(districtId)}
+                      onClick={() => destinationId && void loadRates(destinationId)}
                       className={buttonClass('secondary', 'sm')}
                     >
                       Coba Lagi
@@ -657,6 +766,7 @@ export function CheckoutView() {
                         type="button"
                         onClick={() => {
                           setVoucherInput('');
+                          setVoucherError(null);
                           void loadQuote(null);
                         }}
                         className="inline-flex min-h-11 items-center font-semibold text-action underline"

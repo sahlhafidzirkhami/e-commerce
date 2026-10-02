@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto';
 import {
   ErrorCode,
   ORDER_PAYMENT_TIMEOUT_HOURS,
@@ -8,10 +7,14 @@ import {
   type OrderView,
 } from '@sportswear/shared';
 import { Prisma } from '../../generated/prisma/client.js';
+import { enqueueOrderEmail } from '../../jobs/email-queue.js';
 import { HttpError } from '../../lib/http-error.js';
+import { tokenMatches } from '../../lib/token-match.js';
+import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { resolveCart, type CartOwner } from '../cart/cart.service.js';
 import { titleCase } from '../shipping/region.service.js';
+import { insertAddress } from '../user/account.service.js';
 import {
   quoteShipping as defaultQuoteShipping,
   type QuoteShipping,
@@ -183,7 +186,7 @@ export async function createOrder(
 
   for (let attempt = 1; ; attempt++) {
     try {
-      return await prisma.$transaction(async (tx) => {
+      const order = await prisma.$transaction(async (tx) => {
         const lines = await loadCartLines(tx, cartId);
         assertPurchasable(lines);
         if (sumWeightGram(lines) !== quotedWeight) {
@@ -266,6 +269,11 @@ export async function createOrder(
         await tx.cartItem.deleteMany({ where: { cartId } });
         return order;
       });
+      await enqueueOrderEmail('order-created', order.id);
+      if (input.saveAddress && context.owner.userId) {
+        await saveToAddressBook(context.owner.userId, input.address);
+      }
+      return order;
     } catch (err) {
       // Nomor order bentrok (sangat jarang): ulangi dengan nomor baru.
       if (attempt < MAX_ORDER_NUMBER_ATTEMPTS && isUniqueViolation(err, 'orderNumber')) continue;
@@ -274,10 +282,16 @@ export async function createOrder(
   }
 }
 
-function tokenMatches(expected: string, given: string): boolean {
-  const a = Buffer.from(expected);
-  const b = Buffer.from(given);
-  return a.length === b.length && timingSafeEqual(a, b);
+/**
+ * Simpan alamat checkout ke buku alamat member. Dilakukan setelah order tersimpan dan tidak
+ * pernah menggagalkan checkout: buku alamat penuh atau error hanya dilewati.
+ */
+async function saveToAddressBook(userId: string, address: CreateOrderInput['address']) {
+  try {
+    await prisma.$transaction((tx) => insertAddress(tx, userId, { ...address, label: null }));
+  } catch (err) {
+    logger.warn({ err, userId }, 'Alamat checkout gagal disimpan ke buku alamat');
+  }
 }
 
 export interface OrderViewer {
@@ -300,6 +314,13 @@ export async function getOrderForViewer(
       (viewer.token !== undefined && tokenMatches(order.accessToken, viewer.token)));
   if (!order || !allowed) throw HttpError.notFound('Pesanan tidak ditemukan');
 
+  return toOrderView(order);
+}
+
+type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
+
+/** Satu bentuk tampilan order untuk pembeli dan admin. */
+export function toOrderView(order: OrderWithItems): OrderView & { id: string } {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -307,6 +328,7 @@ export async function getOrderForViewer(
     customerName: order.customerName,
     customerEmail: order.customerEmail,
     customerPhone: order.customerPhone,
+    hasAccount: order.userId !== null,
     shipping: {
       recipient: order.shippingRecipient,
       phone: order.shippingPhone,

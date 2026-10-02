@@ -73,9 +73,17 @@ export function HeaderAccount() {
 
   return (
     <div className="flex min-w-0 items-center gap-2 text-sm">
-      <span className="hidden max-w-32 truncate sm:inline" title={state.user.name}>
-        Hai, <span className="font-semibold">{firstName}</span>
-      </span>
+      <Link
+        href="/akun"
+        className="inline-flex min-h-11 min-w-0 items-center rounded-full px-3 font-semibold hover:bg-muted"
+      >
+        {/* Di layar sempit cukup "Akun". */}
+        <span className="sm:hidden">Akun</span>
+        <span className="hidden max-w-32 truncate sm:inline" title={state.user.name}>
+          <span className="font-normal">Hai, </span>
+          {firstName}
+        </span>
+      </Link>
       <button
         type="button"
         onClick={logout}

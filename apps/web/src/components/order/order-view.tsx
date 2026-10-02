@@ -1,14 +1,16 @@
 'use client';
 
-import type { OrderView } from '@sportswear/shared';
+import type { OrderStatus, OrderView } from '@sportswear/shared';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buttonClass } from '@/components/ui/styles';
 import { errorMessage } from '@/lib/api-client';
 import { checkoutApi } from '@/lib/checkout-client';
+import { courierName, courierTrackingUrl } from '@/lib/couriers';
 import { openDokuCheckout } from '@/lib/doku-checkout';
 import { formatRupiah } from '@/lib/format';
+import { CreateAccountOffer } from './create-account-offer';
 import { OrderStatusChip } from './order-status-chip';
 
 /** Polling status saat menunggu pembayaran; server juga bertanya ke DOKU bila webhook telat. */
@@ -24,6 +26,9 @@ type Load =
   | { status: 'loading' }
   | { status: 'error'; message: string; notFound: boolean }
   | { status: 'ready'; order: OrderView };
+
+/** Tawaran buat akun hanya setelah pesanan dibayar (F-08). */
+const PAID_STATUSES: OrderStatus[] = ['paid', 'processing', 'shipped', 'delivered', 'completed'];
 
 export function OrderPageView({ orderNumber }: { orderNumber: string }) {
   const params = useSearchParams();
@@ -171,14 +176,28 @@ export function OrderPageView({ orderNumber }: { orderNumber: string }) {
           </div>
         )}
         {order.status === 'cancelled' && <p className="font-semibold">Pesanan ini dibatalkan.</p>}
-        {['processing', 'shipped', 'delivered', 'completed'].includes(order.status) && (
+        {order.status === 'processing' && (
           <p className="font-semibold">
-            {order.shipping.trackingNumber
-              ? `Nomor resi ${order.shipping.courier.toUpperCase()}: ${order.shipping.trackingNumber}`
-              : 'Pesanan sedang diproses.'}
+            Pesanan sedang dikemas. Nomor resi muncul di sini setelah dikirim.
           </p>
         )}
+        {['shipped', 'delivered', 'completed'].includes(order.status) &&
+          order.shipping.trackingNumber && (
+            <TrackingInfo
+              courier={order.shipping.courier}
+              trackingNumber={order.shipping.trackingNumber}
+            />
+          )}
       </section>
+
+      {token && !order.hasAccount && PAID_STATUSES.includes(order.status) && (
+        <CreateAccountOffer
+          orderNumber={order.orderNumber}
+          token={token}
+          email={order.customerEmail}
+          onCreated={() => void load()}
+        />
+      )}
 
       <section aria-labelledby="items-heading" className="mt-6">
         <h2 id="items-heading" className="font-display text-lg font-semibold">
@@ -240,6 +259,29 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
       <h1 className="font-display text-headline-sm leading-tight font-bold">{title}</h1>
       {children}
     </main>
+  );
+}
+
+/** Cek resi otomatis = future feature; pembeli melacak di situs kurir dengan nomor ini. */
+function TrackingInfo({ courier, trackingNumber }: { courier: string; trackingNumber: string }) {
+  const url = courierTrackingUrl(courier);
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <p className="font-semibold">
+        Dikirim dengan {courierName(courier)}. Nomor resi:{' '}
+        <span className="font-mono select-all">{trackingNumber}</span>
+      </p>
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener"
+          className="inline-flex min-h-11 items-center text-sm font-semibold text-action underline underline-offset-4 hover:text-action-hover"
+        >
+          Lacak di situs {courierName(courier)}
+        </a>
+      )}
+    </div>
   );
 }
 

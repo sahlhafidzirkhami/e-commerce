@@ -43,6 +43,50 @@ export interface OrderItemView {
   subtotal: number;
 }
 
+/** Baris daftar pesanan di admin. */
+export interface AdminOrderSummary {
+  orderNumber: string;
+  status: OrderStatus;
+  customerName: string;
+  customerEmail: string;
+  itemCount: number;
+  total: number;
+  courier: string;
+  courierService: string;
+  trackingNumber: string | null;
+  createdAt: string;
+  paidAt: string | null;
+}
+
+export interface AdminOrderListResult {
+  items: AdminOrderSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /** Jumlah pesanan per status, untuk tab filter. */
+  countsByStatus: Record<OrderStatus, number>;
+}
+
+export interface AdminOrderDetail extends OrderView {
+  isGuest: boolean;
+  totalWeightGram: number;
+  history: {
+    fromStatus: OrderStatus | null;
+    toStatus: OrderStatus;
+    note: string | null;
+    changedBy: string | null;
+    createdAt: string;
+  }[];
+  payments: {
+    invoiceNumber: string;
+    status: string;
+    amount: number;
+    method: string | null;
+    paidAt: string | null;
+    createdAt: string;
+  }[];
+}
+
 export interface OrderView extends OrderTotals {
   orderNumber: string;
   status: OrderStatus;
@@ -68,4 +112,6 @@ export interface OrderView extends OrderTotals {
   /** Batas bayar untuk order pending. */
   expiresAt: string;
   paidAt: string | null;
+  /** Pesanan sudah terhubung ke akun member (tawaran buat akun tidak ditampilkan). */
+  hasAccount: boolean;
 }

@@ -1,6 +1,9 @@
 /** Order yang belum dibayar akan di-expire oleh job expire-order setelah durasi ini (keputusan 1 Okt 2026). */
 export const ORDER_PAYMENT_TIMEOUT_HOURS = 3;
 
+/** Pesanan `delivered` otomatis menjadi `completed` setelah sekian hari (job complete-order). */
+export const ORDER_AUTO_COMPLETE_DAYS = 3;
+
 /**
  * Pengaman agar pembeli tidak bisa membayar setelah order expired:
  * halaman bayar DOKU ditutup lebih awal dari batas order, dan sesi bayar baru

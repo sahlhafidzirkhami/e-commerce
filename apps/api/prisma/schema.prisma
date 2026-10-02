@@ -58,10 +58,25 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  addresses     Address[]
-  cart          Cart?
-  orders        Order[]
-  statusChanges OrderStatusHistory[]
+  addresses      Address[]
+  passwordResets PasswordResetToken[]
+  cart           Cart?
+  orders         Order[]
+  statusChanges  OrderStatusHistory[]
+}
+
+/// Token reset password (F-17). Hanya hash SHA-256 yang disimpan; token asli ada di email.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Address {
@@ -132,13 +147,13 @@ model Category {
 
 /// 1 produk = 1 warna; warna lain dibuat sebagai produk terpisah.
 model Product {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   categoryId  String?
   /// SKU induk, format KODEMODEL-NOMORWARNA (mis. MSL001-3).
-  sku         String   @unique
+  sku         String  @unique
   name        String
-  slug        String   @unique
-  description String   @default("")
+  slug        String  @unique
+  description String  @default("")
   /// Judul panjang (mis. dari Shopee) untuk meta SEO.
   seoTitle    String?
   brand       String?
@@ -170,11 +185,11 @@ model Product {
 }
 
 model ProductImage {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   productId String
   url       String
   alt       String?
-  sortOrder Int    @default(0)
+  sortOrder Int     @default(0)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -285,6 +300,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([status, expiresAt])
+  @@index([paidAt])
 }
 
 /// Snapshot saat checkout — riwayat tidak berubah bila produk diedit.

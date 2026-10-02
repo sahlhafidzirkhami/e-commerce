@@ -43,3 +43,16 @@ export interface AuthUser {
   phone: string | null;
   role: UserRole;
 }
+
+/** Tautan reset password berlaku selama ini (F-17). */
+export const PASSWORD_RESET_TTL_MINUTES = 60;
+
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: passwordSchema,
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

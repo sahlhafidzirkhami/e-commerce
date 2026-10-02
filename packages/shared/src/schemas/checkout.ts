@@ -54,6 +54,8 @@ export const createOrderSchema = z.object({
   shipping: shippingChoiceSchema,
   voucherCode: voucherCodeSchema.optional(),
   notes: z.string().trim().max(300, 'Catatan maksimal 300 karakter').optional(),
+  /** Member: simpan alamat ini ke buku alamat (diabaikan bila sudah 5 alamat). */
+  saveAddress: z.boolean().optional(),
 });
 
 export type CheckoutContact = z.infer<typeof checkoutContactSchema>;
