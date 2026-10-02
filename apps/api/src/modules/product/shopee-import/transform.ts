@@ -3,6 +3,8 @@
  * Murni: tanpa database, jaringan, atau file — semua aturan bisnis import ada di sini.
  */
 
+import { ALL_SIZE, SIZE_ORDER, compareSize } from '@sportswear/shared';
+
 /** Satu baris data Excel, dikunci dengan kode header teknis Shopee (baris 1). */
 export type SheetRecord = Record<string, string>;
 
@@ -60,8 +62,7 @@ export const DEFAULT_WEIGHT_GRAM = 200;
 export const DEFAULT_LENGTH_CM = 20;
 export const DEFAULT_WIDTH_CM = 10;
 export const MAX_IMAGES = 9;
-export const ALL_SIZE = 'All Size';
-const SIZE_ORDER = ['S', 'M', 'L', 'XL', 'XXL', ALL_SIZE];
+export { ALL_SIZE };
 
 const KAOS: CategoryRef = { name: 'Kaos', slug: 'kaos' };
 const CELANA: CategoryRef = { name: 'Celana', slug: 'celana' };
@@ -268,7 +269,7 @@ export function transformShopeeExport(data: ShopeeExport): TransformResult {
         const sizeCode = size === ALL_SIZE ? 'ALL' : size;
         variants.push({ sku: `${sku}-${sizeCode}`, size, price, stock, weightGram });
       }
-      variants.sort((a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size));
+      variants.sort((a, b) => compareSize(a.size, b.size));
 
       const imageCols = [
         COL.coverImage,

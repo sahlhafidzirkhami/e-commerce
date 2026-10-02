@@ -9,7 +9,17 @@ import { uploadsDir } from './lib/storage.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { loadSession } from './modules/auth/auth.middleware.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
+import { createCartRouter } from './modules/cart/cart.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { createAdminDashboardRouter } from './modules/order/admin-dashboard.routes.js';
+import { createAdminOrderRouter } from './modules/order/admin-order.routes.js';
+import { createCheckoutRouter } from './modules/order/order.routes.js';
+import { createDokuWebhookRouter, createPaymentRouter } from './modules/payment/payment.routes.js';
+import { createAccountRouter } from './modules/user/account.routes.js';
+import { createAdminProductRouter } from './modules/product/admin-product.routes.js';
+import { createCatalogRouter } from './modules/product/product.routes.js';
+import { createShippingRouter } from './modules/shipping/shipping.routes.js';
+import { createAdminVoucherRouter } from './modules/voucher/admin-voucher.routes.js';
 
 export function createApp(): Express {
   const app = express();
@@ -31,12 +41,24 @@ export function createApp(): Express {
   );
 
   app.use(pinoHttp({ logger }));
+  // Sebelum express.json: verifikasi signature DOKU butuh body mentah.
+  app.use(createDokuWebhookRouter());
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(loadSession);
 
   app.use('/api/health', healthRouter);
   app.use('/api/auth', createAuthRouter());
+  app.use('/api', createCatalogRouter());
+  app.use('/api/cart', createCartRouter());
+  app.use('/api', createCheckoutRouter());
+  app.use('/api', createShippingRouter());
+  app.use('/api', createPaymentRouter());
+  app.use('/api/admin/dashboard', createAdminDashboardRouter());
+  app.use('/api/admin/orders', createAdminOrderRouter());
+  app.use('/api/admin/vouchers', createAdminVoucherRouter());
+  app.use('/api/admin', createAdminProductRouter());
+  app.use('/api', createAccountRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

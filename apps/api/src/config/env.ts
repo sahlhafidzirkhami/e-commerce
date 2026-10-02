@@ -4,6 +4,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.url(),
+  /** Jalankan job terjadwal (expire-order) di proses API. */
+  RUN_JOBS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   REDIS_URL: z.url(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET minimal 32 karakter'),
   WEB_URL: z.url(),
@@ -13,9 +18,19 @@ const envSchema = z.object({
   DOKU_CLIENT_ID: z.string().optional(),
   DOKU_SECRET_KEY: z.string().optional(),
   DOKU_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  /** URL publik webhook (mis. tunnel saat development); path harus sama dengan di back office DOKU. */
+  DOKU_NOTIFICATION_URL: z.url().optional(),
   RAJAONGKIR_API_KEY: z.string().optional(),
   RAJAONGKIR_BASE_URL: z.string().optional(),
-  EMAIL_API_KEY: z.string().optional(),
+  /** SMTP. Default Gmail; production cukup ganti host/port/user/password. */
+  EMAIL_HOST: z.string().default('smtp.gmail.com'),
+  EMAIL_PORT: z.coerce.number().int().positive().default(465),
+  EMAIL_USER: z.string().optional(),
+  EMAIL_PASSWORD: z.string().optional(),
+  /** Pengirim, mis. "3ON SportsWear <toko@domain>". Default: EMAIL_USER. */
+  EMAIL_FROM: z.string().optional(),
+  /** Di luar production semua email dialihkan ke sini; kosong = email tidak dikirim. */
+  EMAIL_DEV_REDIRECT_TO: z.email().optional(),
   STORAGE_BUCKET: z.string().optional(),
   STORAGE_DRIVER: z.enum(['local']).default('local'),
   UPLOADS_DIR: z.string().optional(),

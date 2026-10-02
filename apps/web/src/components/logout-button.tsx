@@ -19,9 +19,9 @@ export function LogoutButton({ redirectTo = '/masuk' }: { redirectTo?: string })
       type="button"
       onClick={logout}
       disabled={pending}
-      className="rounded-lg border border-neutral-300 px-3 py-1.5 font-medium disabled:opacity-60"
+      className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold hover:bg-muted disabled:opacity-40"
     >
-      {pending ? 'Keluar…' : 'Keluar'}
+      {pending ? 'Keluar...' : 'Keluar'}
     </button>
   );
 }

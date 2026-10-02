@@ -1,9 +1,68 @@
 @import 'tailwindcss';
 
+/* Token dari DESIGN.md. Setiap pasangan teks/latar sudah dicek WCAG AA. */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  --color-brand: #d946ef;
+  --color-action: #c026d3;
+  --color-action-hover: #a21caf;
+  --color-action-active: #86198f;
+  --color-action-tint: #fdf4ff;
+  --color-promo: #22d3ee;
+  --color-promo-ink: #164e63;
+  --color-promo-text: #0e7490;
+
+  --color-page: #fafafa;
+  --color-surface: #ffffff;
+  --color-muted: #f5f5f5;
+  --color-ink: #171717;
+  --color-ink-2: #525252;
+  --color-ink-3: #737373;
+  --color-line: #e5e5e5;
+  --color-line-strong: #d4d4d4;
+  --color-line-input: #8a8a8a;
+
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-warning-ink: #854d0e;
+  --color-warning-tint: #fef9c3;
+  --color-error-ink: #991b1b;
+  --color-error-tint: #fee2e2;
+
+  --text-display-sm: 2.25rem;
+  --text-display: 3.5rem;
+  --text-headline-sm: 1.75rem;
+  --text-headline: 2.5rem;
+  --text-subhead-sm: 1.375rem;
+  --text-subhead: 1.625rem;
+
+  --shadow-medium: 0 4px 6px rgb(0 0 0 / 0.07), 0 2px 4px rgb(0 0 0 / 0.05);
+  --shadow-overlay: 0 25px 50px rgb(0 0 0 / 0.15), 0 12px 24px rgb(0 0 0 / 0.08);
+  --shadow-product-hover: 0 14px 32px rgb(217 70 239 / 0.12), 0 6px 12px rgb(0 0 0 / 0.06);
 }
 
 body {
-  @apply bg-white text-neutral-900 antialiased;
+  @apply bg-page text-ink antialiased;
+}
+
+/* Focus ring untuk semua kontrol keyboard; input punya gaya focus sendiri. */
+:where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(23 23 23 / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
